@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Informe Técnico — Protocolo WebSocket</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- PORTADA -->
+  <div class="sheet cover-sheet">
+    <header class="top-header">
+      <div class="logo-box" id="logo-slot">
+        <img src="logo-unefa.png" alt="Logo UNEFA" />
+      </div>
+
+      <div class="inst-block">
+        <p>REPÚBLICA BOLIVARIANA DE VENEZUELA</p>
+        <p>MINISTERIO DEL PODER POPULAR PARA LA DEFENSA</p>
+        <p>UNIVERSIDAD NACIONAL EXPERIMENTAL POLITÉCNICA DE LA</p>
+        <p>FUERZA ARMADA NACIONAL BOLIVARIANA</p>
+        <p>UNEFA – NÚCLEO GUÁRICO</p>
+        <p>INGENIERÍA DE SISTEMAS</p>
+      </div>
+    </header>
+
+    <section class="cover-center">
+      <p class="doc-kicker">INFORME TÉCNICO</p>
+      <h1 class="doc-main-title">PROTOCOLO WEBSOCKET</h1>
+      <h2 class="doc-sub-title">(COMUNICACIÓN BIDIRECCIONAL EN TIEMPO REAL)</h2>
+    </section>
+
+    <footer class="cover-footer">
+      <div class="footer-left">
+        <span class="footer-label">PROFESOR:</span>
+        <span class="footer-name">Raúl Blanco</span>
+      </div>
+
+      <div class="footer-right">
+        <span class="footer-label">BACHILLER:</span>
+        <span class="footer-name">Jesús Lara</span>
+        <span class="footer-ci">V-31.079.893</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- CUERPO DEL INFORME -->
+  <main class="sheet report-sheet">
+    <header class="mini-header">
+      <span>UNEFA – NÚCLEO GUÁRICO | INGENIERÍA DE SISTEMAS</span>
+      <span>PROTOCOLO WEBSOCKET (RFC 6455)</span>
+    </header>
+
+    <section class="section">
+      <h2>1. Introducción</h2>
+      <p>
+        En las páginas y aplicaciones web actuales, muchas veces necesitamos que los datos se actualicen al instante,
+        como pasa en un chat, un marcador en vivo o el rastreo de un vehículo. En el HTTP tradicional, la
+        comunicación funciona como preguntar y responder: el navegador (cliente) pide algo y el servidor contesta.
+        Si el servidor tiene un dato nuevo, no puede mandarlo solo a menos que el cliente esté preguntando a cada
+        rato (<em>polling</em>) o deje una petición abierta esperando.
+      </p>
+      <p>
+        El protocolo <strong>WebSocket</strong> (regla oficial <strong>RFC 6455</strong>) soluciona esto creando una
+        "tubería" abierta y constante entre el cliente y el servidor sobre una misma conexión TCP. Una vez que se
+        abre ese canal, ambos pueden enviarse mensajes al mismo tiempo (<strong>full-duplex</strong>), ida y vuelta, sin
+        tener que repetir encabezados pesados en cada mensaje.
+      </p>
+    </section>
+
+    <section class="section">
+      <h2>2. ¿Cómo funciona WebSocket?</h2>
+      <p>
+        WebSocket trabaja encima de TCP, lo que asegura que los datos lleguen completos y en orden. Se usa con
+        <code>ws://</code> cuando la conexión no va cifrada y con <code>wss://</code> cuando va protegida con cifrado
+        seguro (TLS/HTTPS).
+      </p>
+
+      <h3>2.1 El apretón de manos inicial (Handshake)</h3>
+      <p>
+        Para empezar, el cliente manda una petición HTTP normal pidiendo "cambiar de idioma" a WebSocket mediante las
+        líneas <code>Upgrade: websocket</code> y <code>Connection: Upgrade</code>, junto con una clave de prueba
+        (<code>Sec-WebSocket-Key</code>). Si el servidor está de acuerdo, responde con el código
+        <strong>101 Switching Protocols</strong> y una respuesta de confirmación (<code>Sec-WebSocket-Accept</code>).
+        A partir de ese momento, la conexión ya queda lista para enviar mensajes directos.
+      </p>
+
+      <pre><code>GET /chat HTTP/1.1
+Host: ejemplo.local:8080
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+Sec-WebSocket-Version: 13
+
+HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=</code></pre>
+
+      <h3>2.2 Cómo viajan los mensajes (Tramas)</h3>
+      <p>
+        Ya abierta la conexión, la información no viaja como páginas HTTP completas, sino dividida en pequeños
+        paquetes llamados <strong>tramas</strong>, que son muy livianos:
+      </p>
+      <ul>
+        <li><strong>FIN:</strong> Dice si es el último pedazo del mensaje (<code>1</code>) o si viene otro pedazo después (<code>0</code>).</li>
+        <li><strong>RSV1, RSV2, RSV3:</strong> Espacios reservados para funciones extra; normalmente quedan en <code>0</code>.</li>
+        <li><strong>Opcode:</strong> Indica qué tipo de paquete es: texto, datos binarios, un mensaje de cierre, o un aviso de prueba (<em>ping</em> y <em>pong</em>).</li>
+        <li><strong>MASK:</strong> Indica si el contenido va "revuelto" con una clave (enmascarado). Por seguridad, lo que envía el cliente hacia el servidor siempre lleva máscara.</li>
+        <li><strong>Payload Length:</strong> Indica el tamaño del mensaje que se está enviando.</li>
+      </ul>
+    </section>
+
+    <section class="section">
+      <h2>3. Diferencia con otras formas de comunicar</h2>
+      <p>
+        No siempre hace falta WebSocket; a veces basta con otras opciones más simples según lo que necesite el
+        sistema:
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Aspecto</th>
+            <th>HTTP Polling / Long Polling</th>
+            <th>Server-Sent Events (SSE)</th>
+            <th>WebSocket (RFC 6455)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Sentido de los datos</strong></td>
+            <td>El cliente pregunta y el servidor responde</td>
+            <td>Solo del servidor hacia el cliente</td>
+            <td>En ambos sentidos al mismo tiempo</td>
+          </tr>
+          <tr>
+            <td><strong>Peso extra por mensaje</strong></td>
+            <td>Alto (se repiten datos HTTP en cada intento)</td>
+            <td>Bajo una vez abierta la conexión</td>
+            <td>Muy bajo (paquetes muy ligeros)</td>
+          </tr>
+          <tr>
+            <td><strong>Archivos o datos binarios</strong></td>
+            <td>Hay que convertirlos (por ejemplo a texto)</td>
+            <td>Pensado sobre todo para texto</td>
+            <td>Acepta texto y datos binarios directamente</td>
+          </tr>
+          <tr>
+            <td><strong>Reconexión si se cae</strong></td>
+            <td>La programa el desarrollador</td>
+            <td>El navegador la reintenta solo</td>
+            <td>Conviene programarla en el código</td>
+          </tr>
+          <tr>
+            <td><strong>Cuándo conviene usarlo</strong></td>
+            <td>Consultas ocasionales o sistemas antiguos</td>
+            <td>Avisos, alertas o noticias en vivo</td>
+            <td>Chats, mapas en vivo, sensores y juegos</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>4. ¿Dónde se usa y qué hay que cuidar?</h2>
+      <h3>4.1 Ejemplos de uso</h3>
+      <ul>
+        <li><strong>Chats y trabajo en equipo:</strong> Mensajes al instante, saber quién está conectado o ver cuándo alguien está escribiendo.</li>
+        <li><strong>Sensores, GPS y monitoreo:</strong> Ver en tiempo real la ubicación de un vehículo, el estado de una máquina o lecturas de sensores.</li>
+        <li><strong>Juegos y finanzas:</strong> Movimientos rápidos en juegos en línea o cambios de precios al momento.</li>
+      </ul>
+
+      <h3>4.2 Cuidados importantes al implementarlo</h3>
+      <ul>
+        <li><strong>Consumo en el servidor:</strong> Como la conexión queda abierta, muchos usuarios conectados a la vez consumen memoria. Si crecen las visitas, se usan varios servidores coordinados (por ejemplo con Redis) para repartir los mensajes.</li>
+        <li><strong>Seguridad:</strong> En internet siempre se debe usar <code>wss://</code> (cifrado), revisar de qué página viene la conexión (<code>Origin</code>) y validar quién se conecta.</li>
+        <li><strong>Conexiones "zombi":</strong> A veces el internet se corta sin avisar; por eso se envían señales periódicas (<em>ping/pong</em>) para saber si la conexión sigue viva y volver a conectar si hizo falta.</li>
+      </ul>
+    </section>
+
+    <section class="section">
+      <h2>5. Conclusión</h2>
+      <p>
+        En resumen, WebSocket es una herramienta muy práctica cuando necesitamos que el cliente y el servidor
+        conversen de ida y vuelta en tiempo real sin perder tiempo ni ancho de banda repitiendo peticiones. Bien
+        configurado —con conexión segura <code>wss://</code>, control de acceso y manejo de reconexiones— permite
+        construir aplicaciones ágiles, rápidas y confiables.
+      </p>
+    </section>
+  </main>
+</body>
+</html>
